@@ -1,7 +1,5 @@
 #!/usr/bin/env groovy
 
-def commit_sha = ""
-
 pipeline {
 	agent none
 	stages {
@@ -14,8 +12,7 @@ stage('Build') {
 					docker.image("px4io/px4-dev-ros:2018-03-30").inside('-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE') {
 						stage("sitl package") {
 							try{
-								commit_sha = checkout(scm).GIT_COMMIT
-								setBuildStatus("In Progress","PENDING","Jenkins SITL Testing","${commit_sha}")
+								checkout(scm)
 								sh('export')
 								sh('make distclean')
 								sh('make posix_sitl_default')
@@ -109,18 +106,6 @@ stage('ROS Tests') {
 } // ROS Tests
 
 	} //stages
-	post {
-		success {
-			node('master') {
-				setBuildStatus("Complete","SUCCESS","Jenkins SITL Testing","${commit_sha}")
-			}
-		}
-		failure {
-			node('master') {
-				setBuildStatus("Failed","FAILURE","Jenkins SITL Testing","${commit_sha}")
-			}
-		}
-	}
 	environment {
 		CCACHE_DIR = '/tmp/ccache'
 		CI = true
@@ -157,17 +142,4 @@ def createTestNode(Map test_def) {
 			cleanWs()
 		}
 	}
-}
-
-// https://github.com/KostyaSha/github-integration-plugin/issues/102
-def setBuildStatus(String message, String state, String context, String sha) {
-    step([
-        $class: "GitHubCommitStatusSetter",
-        reposSource: [$class: "ManuallyEnteredRepositorySource", url: "https://github.com/PX4/Firmware"],
-        contextSource: [$class: "ManuallyEnteredCommitContextSource", context: context],
-        errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
-        commitShaSource: [$class: "ManuallyEnteredShaSource", sha: sha],
-        statusBackrefSource: [$class: "ManuallyEnteredBackrefSource", backref: "${RUN_DISPLAY_URL}"],
-        statusResultSource: [$class: "ConditionalStatusResultSource", results: [[$class: "AnyBuildResult", message: message, state: state]] ]
-    ]);
 }
