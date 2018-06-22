@@ -81,6 +81,7 @@
 #define MEAS_DRIVER_FILTER_FREQ 1.2f
 #define CONVERSION_INTERVAL	(1000000 / MEAS_RATE)	/* microseconds */
 
+
 class MEASAirspeed : public Airspeed
 {
 public:
@@ -373,18 +374,57 @@ namespace meas_airspeed
 
 MEASAirspeed	*g_dev = nullptr;
 
-int start(int i2c_bus);
+int bus_options[] = {
+#ifdef PX4_I2C_BUS_EXPANSION
+	PX4_I2C_BUS_EXPANSION,
+#endif
+#ifdef PX4_I2C_BUS_EXPANSION1
+	PX4_I2C_BUS_EXPANSION1,
+#endif
+#ifdef PX4_I2C_BUS_EXPANSION2
+	PX4_I2C_BUS_EXPANSION2,
+#endif
+#ifdef PX4_I2C_BUS_ONBOARD
+	PX4_I2C_BUS_ONBOARD,
+#endif
+};
+
+#define NUM_BUS_OPTIONS (sizeof(bus_options)/sizeof(bus_options[0]))
+
+int start();
+int start_bus(int i2c_bus);
 int stop();
 int reset();
 
 /**
- * Start the driver.
+* Attempt to start driver on all available I2C busses.
+*
+* This function will return as soon as the first sensor
+* is detected on one of the available busses or if no
+* sensors are detected.
+*
+*/
+int
+start()
+{
+	for (unsigned i = 0; i < NUM_BUS_OPTIONS; i++) {
+		if (start_bus(bus_options[i]) == PX4_OK) {
+			return PX4_OK;
+		}
+	}
+
+	return PX4_ERROR;
+
+}
+
+/**
+ * Start the driver on a specific bus.
  *
  * This function call only returns once the driver is up and running
  * or failed to detect the sensor.
  */
 int
-start(int i2c_bus)
+start_bus(int i2c_bus)
 {
 	int fd;
 
@@ -483,6 +523,7 @@ meas_airspeed_usage()
 	PX4_INFO("usage: meas_airspeed command [options]");
 	PX4_INFO("options:");
 	PX4_INFO("\t-b --bus i2cbus (%d)", PX4_I2C_BUS_DEFAULT);
+	PX4_INFO("\t-a --all");
 	PX4_INFO("command:");
 	PX4_INFO("\tstart|stop|reset");
 }
@@ -496,10 +537,16 @@ ms4525_airspeed_main(int argc, char *argv[])
 	int ch;
 	const char *myoptarg = nullptr;
 
-	while ((ch = px4_getopt(argc, argv, "b:", &myoptind, &myoptarg)) != EOF) {
+	bool start_all = false;
+
+	while ((ch = px4_getopt(argc, argv, "ab:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'b':
 			i2c_bus = atoi(myoptarg);
+			break;
+
+		case 'a':
+			start_all = true;
 			break;
 
 		default:
@@ -517,7 +564,13 @@ ms4525_airspeed_main(int argc, char *argv[])
 	 * Start/load the driver.
 	 */
 	if (!strcmp(argv[myoptind], "start")) {
-		return meas_airspeed::start(i2c_bus);
+		if (start_all) {
+			return meas_airspeed::start();
+
+		} else {
+			return meas_airspeed::start_bus(i2c_bus);
+		}
+
 	}
 
 	/*
