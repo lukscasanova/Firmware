@@ -70,6 +70,7 @@ px4_add_romfs_files(
 	4900_crazyflie
 	5001_quad_+
 	6001_hexa_x
+	6002_hexa_x_tilt
 	7001_hexa_+
 	8001_octo_x
 	9001_octo_+
