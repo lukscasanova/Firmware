@@ -589,6 +589,8 @@ public:
 		float	pitch_scale;	/**< scales pitch for this rotor */
 		float	yaw_scale;		/**< scales yaw for this rotor */
 		float	thrust_scale;	/**< scales thrust for this rotor */
+		float 	fy_scale;
+		float 	fz_scale;
 	};
 
 	/**
@@ -691,9 +693,12 @@ private:
 	float				_roll_scale;
 	float				_pitch_scale;
 	float				_yaw_scale;
+	float 				_fx_scale;
+	float 				_fy_scale;
 	float				_idle_speed;
 	float 				_delta_out_max;
 	float 				_thrust_factor;
+
 
 	bool                		_airmode;
 

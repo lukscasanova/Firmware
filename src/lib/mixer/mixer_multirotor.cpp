@@ -50,6 +50,16 @@
 // #include "mixer_multirotor_6dof.generated.h"
 
 
+const MultirotorMixer::Rotor _config_hex_x_tilt_6dof[] = {
+	{ -0.396342,  0.000000, -0.306767,  0.666666,  0.000000, -0.192450 },
+	{  0.396342, -0.000000,  0.306767,  0.666666,  0.000000, -0.192450 },
+	{  0.198171,  0.343242, -0.306767, -0.333333, -0.577350, -0.192450 },
+	{ -0.198171, -0.343242,  0.306767, -0.333333, -0.577350, -0.192450 },
+	{ -0.198171,  0.343242,  0.306767, -0.333333,  0.577350, -0.192450 },
+	{  0.198171, -0.343242, -0.306767, -0.333333,  0.577350, -0.192450 },
+};
+
+
 #define debug(fmt, args...)	do { } while(0)
 //#define debug(fmt, args...)	do { printf("[mixer] " fmt "\n", ##args); } while(0)
 //#include <debug.h>
@@ -71,6 +81,8 @@ MultirotorMixer::MultirotorMixer(ControlCallback control_cb,
 	_roll_scale(roll_scale),
 	_pitch_scale(pitch_scale),
 	_yaw_scale(yaw_scale),
+	_fx_scale(1.0f),
+	_fy_scale(1.0f),
 	_idle_speed(-1.0f + idle_speed * 2.0f),	/* shift to output range here to avoid runtime calculation */
 	_delta_out_max(0.0f),
 	_thrust_factor(0.0f),
@@ -82,6 +94,8 @@ MultirotorMixer::MultirotorMixer(ControlCallback control_cb,
 	for (unsigned i = 0; i < _rotor_count; ++i) {
 		_outputs_prev[i] = _idle_speed;
 	}
+
+	_rotors = _config_hex_x_tilt_6dof;
 }
 
 MultirotorMixer::~MultirotorMixer()
@@ -163,10 +177,18 @@ MultirotorMixer::mix(float *outputs, unsigned space)
 	4) scale all outputs to range [idle_speed,1]
 	*/
 
+
 	float		roll    = math::constrain(get_control(0, 0) * _roll_scale, -1.0f, 1.0f);
 	float		pitch   = math::constrain(get_control(0, 1) * _pitch_scale, -1.0f, 1.0f);
 	float		yaw     = math::constrain(get_control(0, 2) * _yaw_scale, -1.0f, 1.0f);
 	float		thrust  = math::constrain(get_control(0, 3), 0.0f, 1.0f);
+
+	// Adding placeholder for fx and fy;
+	// float		f_x    	= math::constrain( 0.1f * _fx_scale, -1.0f, 1.0f);
+	// float		f_y    	= math::constrain( 0.1f * _fy_scale, -1.0f, 1.0f);
+
+	// f_x = f_x + f_y;
+
 	float		min_out = 1.0f;
 	float		max_out = 0.0f;
 
@@ -177,7 +199,10 @@ MultirotorMixer::mix(float *outputs, unsigned space)
 	for (unsigned i = 0; i < _rotor_count; i++) {
 		float out = roll * _rotors[i].roll_scale +
 			    pitch * _rotors[i].pitch_scale +
-			    thrust * _rotors[i].thrust_scale;
+			    thrust * _rotors[i].fz_scale;
+			    // f_x * _rotors[i].fx_scale +
+			    // f_y * _rotors[i].fy_scale;
+			     
 
 		/* calculate min and max output values */
 		if (out < min_out) {
@@ -190,6 +215,21 @@ MultirotorMixer::mix(float *outputs, unsigned space)
 
 		outputs[i] = out;
 	}
+	// 
+	// outputs[0] = 0.0f;
+	// outputs[1] = 0.0f;
+	// outputs[2] = (float) (1.0 + sqrt(3.0)/3.0)*0.2f;
+	// outputs[3] = (float) (1.0 + sqrt(3.0)/3.0)*0.2f;
+	// outputs[4] = (float) (1.0 - sqrt(3.0)/3.0)*0.2f;
+	// outputs[5] = (float) (1.0 - sqrt(3.0)/3.0)*0.2f;
+	// outputs[0] = 0.5f;
+	// outputs[1] = 0.5f;
+	// outputs[2] = 0.5f;
+	// outputs[3] = 0.5f;
+	// outputs[4] = 0.5f;
+	// outputs[5] = 0.5f;
+
+	// return _rotor_count;
 
 	float boost = 0.0f;		// value added to demanded thrust (can also be negative)
 	float roll_pitch_scale = 1.0f;	// scale for demanded roll and pitch
@@ -245,7 +285,7 @@ MultirotorMixer::mix(float *outputs, unsigned space)
 		float out = (roll * _rotors[i].roll_scale +
 			     pitch * _rotors[i].pitch_scale) * roll_pitch_scale +
 			    yaw * _rotors[i].yaw_scale +
-			    (thrust + boost) * _rotors[i].thrust_scale;
+			    (thrust + boost) * _rotors[i].fz_scale;
 
 		// scale yaw if it violates limits. inform about yaw limit reached
 		if (out < 0.0f) {
@@ -281,7 +321,7 @@ MultirotorMixer::mix(float *outputs, unsigned space)
 		outputs[i] = (roll * _rotors[i].roll_scale +
 			      pitch * _rotors[i].pitch_scale) * roll_pitch_scale +
 			     yaw * _rotors[i].yaw_scale +
-			     (thrust + boost) * _rotors[i].thrust_scale;
+			     (thrust + boost) * _rotors[i].fz_scale;
 
 		/*
 			implement simple model for static relationship between applied motor pwm and motor thrust
