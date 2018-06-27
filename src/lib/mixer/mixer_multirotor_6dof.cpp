@@ -310,7 +310,10 @@ MultirotorMixer6dof::mix(float *outputs, unsigned space)
 		if (not _controlled_axes[j]) {
 			command(j) = 0.0f;
 		}
+		printf("\ncommand %d: %f", j, (double) command(j));
 	}
+		// command(4) = 0.2f;
+
 
 	// Make sure the command is in the feaseable actuation space
 	command = clip_command(command);
@@ -329,11 +332,11 @@ MultirotorMixer6dof::mix(float *outputs, unsigned space)
 			this model assumes normalized input / output in the range [0,1] so this is the right place
 			to do it as at this stage the outputs are in that range.
 		 */
-		if (_thrust_factor > 0.0f) {
-			outputs[i] = -(1.0f - _thrust_factor) / (2.0f * _thrust_factor) + sqrtf((1.0f - _thrust_factor) *
-					(1.0f - _thrust_factor) / (4.0f * _thrust_factor * _thrust_factor) + (outputs[i] < 0.0f ? 0.0f : outputs[i] /
-							_thrust_factor));
-		}
+		// if (_thrust_factor > 0.0f) {
+		// 	outputs[i] = -(1.0f - _thrust_factor) / (2.0f * _thrust_factor) + sqrtf((1.0f - _thrust_factor) *
+		// 			(1.0f - _thrust_factor) / (4.0f * _thrust_factor * _thrust_factor) + (outputs[i] < 0.0f ? 0.0f : outputs[i] /
+		// 					_thrust_factor));
+		// }
 
 		// scale output to range [_out_min, _out_max]
 		outputs[i] = math::constrain(outputs[i], _out_min, _out_max);
