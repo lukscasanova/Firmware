@@ -345,12 +345,15 @@ MultirotorMixer::mix(float *outputs, unsigned space)
 
 		_outputs_prev[i] = outputs[i];
 
+		printf("\noutput %d: %f",i, (double) outputs[i]);
 		// update the saturation status report
 		update_saturation_status(i, clipping_high, clipping_low);
 	}
 
 	// this will force the caller of the mixer to always supply new slew rate values, otherwise no slew rate limiting will happen
 	_delta_out_max = 0.0f;
+
+
 
 	return _rotor_count;
 }

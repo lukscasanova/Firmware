@@ -195,7 +195,8 @@ MultirotorMixer6dof::get_command(void) const
 		math::constrain(get_control(0, actuator_controls_s::INDEX_YAW)	 	* _yaw_scale,   -1.0f, 1.0f),
 		math::constrain(get_control(0, actuator_controls_s::INDEX_X_THRUST) * _x_scale, 	-1.0f, 1.0f),
 		math::constrain(get_control(0, actuator_controls_s::INDEX_Y_THRUST) * _y_scale, 	-1.0f, 1.0f),
-		math::constrain(get_control(0, actuator_controls_s::INDEX_Z_THRUST) * _z_scale, 	-1.0f, 1.0f),
+		// math::constrain(get_control(0, actuator_controls_s::INDEX_Z_THRUST) , 	0.0f, 1.0f),
+		math::constrain(get_control(0, actuator_controls_s::INDEX_Z_THRUST) * _z_scale , 	-1.0f, 1.0f),
 	};
 
 	// return command;
@@ -282,6 +283,9 @@ MultirotorMixer6dof::clip_command(const matrix::Vector<float, 6> &desired_comman
 	return command;
 }
 
+// void getOutputsFromRegularMix(float* outputs, const matrix::Vector<float, 6> &desired_command){
+
+// }
 
 unsigned
 MultirotorMixer6dof::mix(float *outputs, unsigned space)
@@ -306,17 +310,22 @@ MultirotorMixer6dof::mix(float *outputs, unsigned space)
 	// Remove uncontrolled axes
 	matrix::Vector<float, 6> command = raw_command;
 
+	printf("\n\n--------");
 	for (size_t j = 0; j < 6; j++) {
 		if (not _controlled_axes[j]) {
 			command(j) = 0.0f;
 		}
 		printf("\ncommand %d: %f", j, (double) command(j));
+
 	}
-		// command(4) = 0.2f;
 
 
 	// Make sure the command is in the feaseable actuation space
 	command = clip_command(command);
+
+	for(size_t j = 0; j < 6; j++){
+		printf("\ncommand %d: %f", j, (double) command(j));
+	}
 
 	// Compute mixing
 	for (unsigned i = 0; i < _rotor_count; i++) {
@@ -325,6 +334,7 @@ MultirotorMixer6dof::mix(float *outputs, unsigned space)
 
 		// motor command
 		outputs[i] = command * b;
+		printf("\noutput %d: %f", i, (double) outputs[i]);
 
 		/*
 			implement simple model for static relationship between applied motor pwm and motor thrust
@@ -332,18 +342,25 @@ MultirotorMixer6dof::mix(float *outputs, unsigned space)
 			this model assumes normalized input / output in the range [0,1] so this is the right place
 			to do it as at this stage the outputs are in that range.
 		 */
-		// if (_thrust_factor > 0.0f) {
-		// 	outputs[i] = -(1.0f - _thrust_factor) / (2.0f * _thrust_factor) + sqrtf((1.0f - _thrust_factor) *
-		// 			(1.0f - _thrust_factor) / (4.0f * _thrust_factor * _thrust_factor) + (outputs[i] < 0.0f ? 0.0f : outputs[i] /
-		// 					_thrust_factor));
-		// }
+		if (_thrust_factor > 0.0f) {
+			outputs[i] = -(1.0f - _thrust_factor) / (2.0f * _thrust_factor) + sqrtf((1.0f - _thrust_factor) *
+					(1.0f - _thrust_factor) / (4.0f * _thrust_factor * _thrust_factor) + (outputs[i] < 0.0f ? 0.0f : outputs[i] /
+							_thrust_factor));
+		}
+		printf("\n.output %d: %f", i, (double) outputs[i]);
 
 		// scale output to range [_out_min, _out_max]
-		outputs[i] = math::constrain(outputs[i], _out_min, _out_max);
+		// outputs[i] = math::constrain(outputs[i], _out_min, _out_max);
+		printf("\n..output %d: %f", i, (double) outputs[i]);
 
 		// scale output to range [-1, 1]
-		// outputs[i] = math::constrain(-1.0f + 2.0f * outputs[i], _idle_speed, _out_max);
+		outputs[i] = math::constrain(-1.0f + 2.0f * outputs[i], _idle_speed, _out_max);
+		printf("\n..output %d: %f", i, (double) outputs[i]);
+
 	}
+
+	printf("\n------- before slew rate limiting and saturation");
+
 
 	// clean out class variable used to capture saturation
 	_saturation_status.value = 0;
@@ -384,12 +401,19 @@ MultirotorMixer6dof::mix(float *outputs, unsigned space)
 
 		_outputs_prev[i] = outputs[i];
 
+		printf("\noutput %d: %f", i, (double) outputs[i]);
+
+
 		// update the saturation status report
 		update_saturation_status(i, clipping_high, clipping_low);
 	}
 
 	// this will force the caller of the mixer to always supply new slew rate values, otherwise no slew rate limiting will happen
 	_delta_out_max = 0.0f;
+
+	// for(int i = 0 ; i < 6; ++i){
+	// 	outputs[i] = -1.0f;
+	// }
 
 	return _rotor_count;
 }
