@@ -1281,6 +1281,10 @@ MavlinkReceiver::handle_message_set_attitude_target(mavlink_message_t *msg)
 
 					if (!_offboard_control_mode.ignore_thrust) { // dont't overwrite thrust if it's invalid
 						att_sp.thrust = set_attitude_target.thrust;
+						att_sp.thrust_3d[0] = set_attitude_target.body_roll_rate;
+						att_sp.thrust_3d[1] = set_attitude_target.body_pitch_rate;
+						att_sp.thrust_3d[2] = set_attitude_target.body_yaw_rate;
+						att_sp.thrust_3d_valid = true;
 					}
 
 					if (_att_sp_pub == nullptr) {
