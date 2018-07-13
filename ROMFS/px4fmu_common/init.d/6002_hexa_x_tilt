@@ -1,6 +1,6 @@
 #!nsh
 #
-# @name Generic Hexarotor x geometry
+# @name Tilted Hexarotor x geometry
 #
 # @type Hexarotor x
 # @class Copter
